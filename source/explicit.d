@@ -69,7 +69,7 @@ static foreach(name; ["rk3","rk4","heun"])
 struct rk3Table(T)
 {
 static immutable a=[
-[0],
+[T(0)],
 [T(0), T(1)/T(2)],
 [T(0), T(0), T(1)/T(2)]];
 static immutable b=[T(1)/T(6),T(1)/T(3),T(1)/T(3),T(1)/T(6)];
