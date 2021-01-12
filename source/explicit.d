@@ -11,24 +11,26 @@
  * * the function f
  * * the starting time t
  * * the time increment dt
- * and it returns the pair (t+dt, y(t+dt))
+ * and it returns y(t+dt)
  *
  * The function are templated so that arbitrary types can be used for
  * the value f(t) allowing the solution of scalar-, vector- or tensor-valued
  * ODEs and different implementations of scalars.
+ *
+ * All the method are special cases of Runge-Kutta and they share a generic
+ * implementation that is based on the Butcher table of the coefficients of
+ * the method.
  */
 module explicit.d
 
 import std.traits:Unqual;
 
-
-/// Explicit Euler is the simplest stepping method for ODEs
-Unqual!valT EulerStep(funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
-/// TODO add template constraints
+/// This loop generates the functions for the different methods
+/// from a list of names
+static foreach(name; ["euler", "rk3", "rk4","heun"])
 {
-  return y+dt*f(t,y);
+  mixin("valT "~name~"Step (funT, timeT, valT)( funT f, timeT t, timeT dt, valT y){return rkStep!("~name~"Table,funT,timeT,valT)(f,t,dt,y);} " );
 }
-
 
 /// Explicit Runge-Kutta methods are a multi-step method where intermediate
 /// results are combined according to a predetermined Butcher table.
@@ -55,17 +57,14 @@ Unqual!valT rkStep(alias table,funT, timeT, valT)( funT f, timeT t, timeT dt, va
   immutable len=a.length;
   Unqual!valT[len] k;
   k[0]=f(t,y);
-  static foreach ( i; 0.. len)
+  foreach ( i; 0.. len)
   {
     k[i]=f(t+c[i]*dt, weightedSum(k[0..i],a[i][0..i]));
   }
   return weightedSum(k,b);
 }
 
-static foreach(name; ["rk3","rk4","heun"])
-{
-  mixin("valT "~name~"Step (funT, timeT, valT)( funT f, timeT t, timeT dt, valT y){return rkStep!("~name~"Table,funT,timeT,valT)(f,t,dt,y);} " );
-}
+
 
 struct rk3Table(T)
 {
