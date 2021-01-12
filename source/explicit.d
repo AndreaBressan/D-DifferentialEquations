@@ -19,9 +19,11 @@
  */
 module explicit.d
 
+import std.traits:Unqual;
+
 
 /// Explicit Euler is the simplest stepping method for ODEs
-valT EulerStep(funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
+Unqual!valT EulerStep(funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
 /// TODO add template constraints
 {
   return y+dt*f(t,y);
@@ -30,10 +32,9 @@ valT EulerStep(funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
 
 /// Explicit Runge-Kutta methods are a multi-step method where intermediate
 /// results are combined according to a predetermined Butcher table.
-valT rkStep(alias table,funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
+Unqual!valT rkStep(alias table,funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
 /// TODO add template constraints
 {
-    import std.traits:Unqual;
   /// util to be factored out, modeled over std.numeric.dotProduct
   /// that cannot be used as it assumes that a and b are both scalars
   Unqual!valT weightedSum(const Unqual!valT[] v, const Unqual!timeT[] s) pure
