@@ -42,47 +42,71 @@ mixin("valT "~name~"Step (funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
 /// allow for error estimation
 static foreach(name; adaptiveStepNames)
 {
-mixin("Tuple!(Unqual!valT,Unqual!valT) "~name~"Step (funT, timeT, valT)( funT f, timeT t, timeT dt, valT y){return rkStep!("~name~"Table,funT,timeT,valT)(f,t,dt,y);} " );
+mixin("Tuple!(Unqual!valT,Unqual!valT) "~name~"Step (funT, timeT, valT)( funT f, timeT t, timeT dt, valT y){return rkAdaptiveStep!("~name~"Table,funT,timeT,valT)(f,t,dt,y);} " );
+}
+
+
+/// compute a linear combination of vectors
+Unqual!valT weightedSum(valT, timeT)(const valT[] v, const timeT[] s) pure
+{
+    Unqual!valT result = s[0]*v[0];  // avoid the problem of having a zero inizializer
+    for (auto i=1;i<s.length;++i)
+    {
+        result += s[i] * v[i];
+    }
+    return result;
 }
 
 /// Explicit Runge-Kutta methods are a multi-step method where intermediate
 /// results are combined according to a predetermined Butcher table.
-auto rkStep(alias table,funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
+Unqual!valT rkStep(alias table,funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
 /// TODO add template constraints
 {
-/// util to be factored out, modeled over std.numeric.dotProduct
-/// that cannot be used as it assumes that a and b are both scalars
-Unqual!valT weightedSum(const Unqual!valT[] v, const Unqual!timeT[] s) pure
-{
-// avoid the problem of having a zero inizializer
-Unqual!valT result = s[0]*v[0]; 
-for (auto i=1;i<s.length;++i)
-{
-result += s[i] * v[i];
-}
-return result;
-}
+    alias a=table!(timeT).a;
+    alias b=table!(timeT).b;
+    alias c=table!(timeT).c;
 
-alias a=table!(timeT).a;
-alias b=table!(timeT).b;
-alias c=table!(timeT).c;
-
-immutable len=a.length;
-Unqual!valT[len] k;
-k[0]=f(t,y);
-foreach ( i; 0.. len)
-{
-k[i]=f(t+c[i]*dt, weightedSum(k[0..i],a[i][0..i]));
-}
-static if (hasMember!(table!(timeT),"b2"))
-{
-    alias b2=table!(timeT).b;
-    return tuple(weightedSum(k,b),weightedSum(k,b2));
-}
-else
+    immutable len=a.length;
+    Unqual!valT[len] k;
+    k[0]=f(t,y);
+    foreach ( i; 0.. len)
+    {
+        k[i]=f(t+c[i]*dt, weightedSum(k[0..i],a[i][0..i]));
+    }
     return weightedSum(k,b);
 }
 
+
+/// Adaptive Explicit Runge-Kutta methods return the results of two methods
+/// that can be used for error estimation
+Tuple!(Unqual!valT,Unqual!valT) rkAdaptiveStep(alias table,funT, timeT, valT)( funT f, timeT t, timeT dt, valT y)
+    if (hasMember!(table!(timeT),"b2"))
+/// TODO add template constraints
+{
+    alias a=table!(timeT).a;
+    alias b=table!(timeT).b;
+    alias b2=table!(timeT).b;
+    alias c=table!(timeT).c;
+
+    immutable len=a.length;
+    Unqual!valT[len] k;
+    k[0]=f(t,y);
+    foreach ( i; 0.. len)
+    {
+        k[i]=f(t+c[i]*dt, weightedSum(k[0..i],a[i][0..i]));
+    }
+    return tuple(weightedSum(k,b),weightedSum(k,b2));
+}
+
+Tuple!(Unqual!valT[],Unqual!timeT[]) solveRK(alias table,funT, timeT,valT, alias tolT=norm) (funT f, timeT[] times, valT y0)
+{
+    len=times.length;
+    Unqual!valT[] y;
+    y.length=len;
+    y[0]=y0;
+    for (i; iota(1,len))  y[i]=rkStep!table(f,times[i-1],times[i]-times[i-1],y[i-1]);    
+    return tuple(y , times);
+}
 
 
 struct rk3Table(T)
