@@ -98,7 +98,7 @@ Tuple!(Unqual!valT,Unqual!valT) rkAdaptiveStep(alias table,funT, timeT, valT)( f
     return tuple(weightedSum(k,b),weightedSum(k,b2));
 }
 
-Tuple!(Unqual!valT[],Unqual!timeT[]) solveRK(alias table,funT, timeT,valT, alias tolT=norm) (funT f, timeT[] times, valT y0)
+Tuple!(Unqual!valT[],Unqual!timeT[]) solveRK(alias table,funT, timeT,valT) (funT f, timeT[] times, valT y0)
 {
     len=times.length;
     Unqual!valT[] y;
