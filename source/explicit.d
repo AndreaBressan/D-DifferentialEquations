@@ -108,6 +108,77 @@ Tuple!(Unqual!valT[],Unqual!timeT[]) solveRK(alias table,funT, timeT,valT) (funT
     return tuple(y , times);
 }
 
+Tuple!(Unqual!valT[],Unqual!timeT[]) solveRKAdaptive(alias table,funT, timeT,valT) (funT f, timeT[] times, valT y0, timeT tol,)
+{
+    len=times.length;
+    Unqual!valT[] y;
+    y.length=len;
+    y[0]=y0;
+    
+    Unqual!timeT tcurr=times[0];
+    Unqual!valT  ycurr=y0;
+    
+    Unqual!timeT   max_dt=times[1]-times[0];
+    Unqual!timeT   opt_dt=max_dt;
+    
+    foreach (immutable i, t; times[1 .. $])
+    {
+        
+        while (true)
+        {
+            bool save;
+            max_dt=t-tcurr;
+            if (max_dt<opt_dt)
+            {   
+                save=true;
+                dt=max_dt;
+            }
+            else
+            {
+                save=false;
+                dt=opt_dt;
+            }
+            Tuple!(Unqual!valT[],Unqual!timeT[]) twoSol=rkAdaptiveStep!table(f,tcurr,dt,ycurr);
+            auto err=abs(twoSol[1]-twoSol[0]).maxElement;
+            auto rel_err=err/ abs(twoSol[0]).maxElement;
+            
+            if ( rel_err> tol)
+            {
+                // reduce step size and retry
+                static if (hasMember!(table!(timeT),"order"))
+                {
+                    auto fac = (tol/rel_err) ^^ (1/table!timeT.order);
+                    fac = min(10, max(0.01, fac));
+                    opt_dt=dt*fac;
+                }
+                else
+                {
+                    opt_dt=dt/2;
+                }
+                continue;
+            }
+            else if(save)
+            {
+                // save current value and proceed to the next interval
+                y[i]=ycurr;
+                tcurr=t;
+                break;
+            }
+            else
+            {
+                // intermediete step
+                tcurr=t+dt;
+                ycurr=twoSol[1];
+                // optimize dt for staying at half tolerance
+                auto fac = (tol/rel_err/2) ^^ (1/table!timeT.order);
+                fac = min(10, max(0.01, fac));
+                opt_dt=dt*fac;
+            }
+        }
+    }
+    return tuple(tout, yout);
+}
+
 
 struct rk3Table(T)
 {
@@ -159,6 +230,7 @@ static immutable a=[
 static immutable b=[T(5179)/T(57600), T(0), T(7571)/T(16695), T(393)/T(640), T(-92097)/T(339200), T(187)/T(2100),T(1)/T(40)];
 static immutable c=[T(0),T(1)/T(5),T(3)/T(10),T(4)/T(5), T(8)/T(9), T(1), T(1)];
 static immutable b2=[T(0), T(0), T(0), T(0), T(0), T(0), T(1)];
+static immutable order=T(4);
 }
 
 
